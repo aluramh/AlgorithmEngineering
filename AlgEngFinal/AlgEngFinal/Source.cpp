@@ -6,18 +6,22 @@
 #include <stdlib.h>     /* srand, rand */
 #include <time.h>  
 
-#define Q_NODES 16
+#define Q_NODES 50
 #define M_PI 3.14159265358979323846  /* pi */
+#define Q_COLORS 200
 
 using namespace std;
 
 //Array of edges in dynamic memory. 
 //e.g. edges[33] contains a list with all the edges of node with ID 33
 list<Node> *edges = new list<Node>[Q_NODES];
+list<Node> *originalEdges = new list<Node>[Q_NODES];
 
 unsigned int *index = new unsigned int[Q_NODES];
 unsigned int *degrees = new unsigned int[Q_NODES];
 unsigned int *originalDegrees = new unsigned int[Q_NODES];
+unsigned int *smallestLast = new unsigned int[Q_NODES];
+int *coloring = new int[Q_NODES];
 
 //Declare list of nodes
 list<Node> myList;
@@ -60,6 +64,16 @@ void displayAdjacenecyList() {
 		cout << endl;
 	}
 }
+void displayAdjacenecyList2() {
+	int i = 0;
+	for (list<Node>::iterator it = myList.begin(); it != myList.end(); it++) {
+		cout << (*it).getInfo() << "-> ";
+		displayList(originalEdges[i]);
+		i++;
+		cout << endl;
+	}
+}
+
 Node findInList(list<Node> myList, Node a) {
 	Node result = NULL;
 	for (list<Node>::iterator it = myList.begin(); it != myList.end(); it++) {
@@ -69,22 +83,6 @@ Node findInList(list<Node> myList, Node a) {
 		}
 	}
 	return result;
-}
-void writeFile(char type) {
-	ofstream myfile;
-	myfile.open("C:/Users/Alex/Desktop/nodes.txt");
-	myfile << type << " 0 0 0"<<endl;
-	int i = 0;
-	for (list<Node>::iterator it = myList.begin(); it != myList.end(); it++) {
-		myfile << "n " << (*it).getX() << " " << (*it).getY() << " " << (*it).getZ() << endl;
-		list<Node> edgeList = edges[i];
-
-		for (list<Node>::iterator it2 = edgeList.begin(); it2 != edgeList.end(); it2++) {
-			myfile << "e " << (*it2).getX() << " " << (*it2).getY() << " " << (*it2).getZ() << endl;
-		}
-		i++;
-	}
-	myfile.close();
 }
 void connectNodes3D(double r) {
 	double rs = r*r;
@@ -191,7 +189,6 @@ int maxDegree() {
 	return max;
 }
 
-void findSmallestInBucket(){}
 int findNonEmptyBucket(int buckets) {
 	//Returns -1 if all buckets are empty
 	for (int i = 0; i < buckets; i++) {
@@ -216,13 +213,13 @@ void removeEdge(int adjacentNode, int smallestNode) {
 }
 void smallestLastOrdering(int buckets) {
 	for (int it = 0; it < Q_NODES; it++) {
-		cout << endl;
 		int currentList = findNonEmptyBucket(buckets);
 		//Perform if not all buckets are empty:
 		if (!(currentList == -1)) {
 			//Find node with smallest degree in bucket sorter
 			int smallestNode = bucketDegrees[currentList].front();
-			cout << smallestNode << " " << originalDegrees[smallestNode] << " " << degrees[smallestNode];
+				//Add it to end of array
+			smallestLast[Q_NODES - it - 1] = smallestNode;
 			//Remove them from bucket
 			bucketDegrees[currentList].pop_front();
 			
@@ -243,16 +240,81 @@ void smallestLastOrdering(int buckets) {
 				degrees[adjacentNode]--;
 			}
 		}
-		else {
-			//break;
-		}
+	}
+}
+void showSmallestLast() {
+	cout << "Smallest last ordering: [Node ID, Act. Deg., Deg. when deleted]" << endl;
+	for (int i = 0; i < Q_NODES; i++) {
+		int n = smallestLast[i];
+		cout << n << " " << originalDegrees[n] << " " << degrees[n] << endl;
 	}
 	cout << endl;
+}
+void coloringAlgorithm() {
+	for (int i = 0; i < Q_NODES; i++) {
+		//Initialize to 0
+		coloring[i] = -1;
+	}
+	
+	//Go through small last ordering
+	for (int i = 0; i < Q_NODES; i++) {
+		int current = smallestLast[i];
+
+		//Possible color combinations. 1 indicates available
+		bool color[Q_COLORS + 1] = {0};
+		//Iterate through neighbors
+		for (list<Node>::iterator it = originalEdges[current].begin(); it != originalEdges[current].end(); it++) {
+			//Get an adjacent node
+			int adjacentNode = (*it).getInfo();
+			if (coloring[adjacentNode] > -1) {
+				//Mark color with 1 for not available
+				color[coloring[adjacentNode]] = 1;
+			}
+		}
+		int j;
+		for (j = 0; j < Q_COLORS; j++) {
+			if (color[j] == 0) {
+				break;
+			}
+		}
+		coloring[current] = j;
+	}
+}
+void displayColoring() {
+	for (int i = 0;i < Q_NODES; i++) {
+		cout << i << " " << coloring[i] << endl;
+	}
+}
+int maxColors() {
+	int max = 0;
+	for (int i = 0; i < Q_NODES; i++) {
+		if (coloring[i] > max) {
+			max = coloring[i];
+		}
+	}
+	return max;
+}
+void writeFile(char type) {
+	ofstream myfile;
+	myfile.open("C:/Users/Alex/Desktop/nodes.txt");
+	myfile << type << " 0 0 0 0" << endl;
+	myfile << "k " << maxColors() << " 0 0 0" << endl;
+	int i = 0;
+	for (list<Node>::iterator it = myList.begin(); it != myList.end(); it++) {
+		myfile << "n " << (*it).getX() << " " << (*it).getY() << " " << (*it).getZ() << " " << coloring[(int)(*it).getInfo()] << endl;
+		list<Node> edgeList = edges[i];
+
+		for (list<Node>::iterator it2 = edgeList.begin(); it2 != edgeList.end(); it2++) {
+			myfile << "e " << (*it2).getX() << " " << (*it2).getY() << " " << (*it2).getZ() << " 0" << endl;
+		}
+		i++;
+	}
+	myfile.close();
 }
 int main(int argc, const char * argv[])
 {	
 	char type;
-	double radius = 0.27;
+	double radius = 0.2;
 	//cin >> type;
 	type = 'u';
 	switch (type) {
@@ -277,24 +339,36 @@ int main(int argc, const char * argv[])
 	//showDegrees();
 	cout << endl;
 
-	writeFile(type);
-
 	//Perform bucket sort
 	int buckets = maxDegree()+1;
 	createDegreeBucket(buckets);
 	//displayDegreeBucket(buckets);
-
-	cout << "\nSuccess! Avg. deg.: " << averageDegree() <<" Max deg.: " << maxDegree() << endl;
 	
+	for (int i = 0; i < Q_NODES; i++) {
+		originalEdges[i] = edges[i];
+	}
+
 	//Perform smallest last ordering
 	smallestLastOrdering(buckets);
+	showSmallestLast();
+
+	//Coloring
+	coloringAlgorithm();
+	displayColoring();
+	displayAdjacenecyList2();
+
+	cout << "\nSuccess!\nAvg. deg.: " << averageDegree() << "\nMax deg.: " << maxDegree() << "\nColors needed: " << maxColors()<< endl;
 	
 	//Release memory
+	writeFile(type);
 	delete[] edges;
 	delete[] degrees;
 	delete[] index;
 	delete[] bucketDegrees;
 	delete[] originalDegrees;
+	delete[] smallestLast;
+	delete[] coloring;
+	delete[] originalEdges;
 	cout << "END\n";
 	return 0;
 }

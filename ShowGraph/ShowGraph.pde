@@ -4,6 +4,7 @@ BufferedReader reader;
 String line;
 float xi = 0; float yi = 0;
 char mode;
+int colors = 1;
 void setup() {
   size(610, 610);
   background(30);
@@ -36,26 +37,40 @@ void draw() {
   } 
   else {
     String[] pieces = split(line, " ");
+    
     char node = pieces[0].charAt(0);
     float x =     float(pieces[1]);
     float y =     float(pieces[2]);
     float z =     float(pieces[3]);
+    int ncolor =     int(pieces[4]);
     
     switch(node){
-      case 'u':
+      case 'k': //Update needed colors
+        colors = int(pieces[1]);
+        println("Colors"+colors);
+      case 'u': //Unit square mode
         mode = 'u';
         break;
-      case 'c':
+      case 'c': //Circle mode
         mode = 'c';
         fill(30);
         ellipse(610/2, 610/2, 610-20, 610-20);
         break;
-      case 's': 
+      case 's': //Sphere mode
         mode = 's';
         break;
-      case 'n':
+      case 'n': //Need to draw a point
+        noStroke();
         if(mode == 'u'){ //Unit square
-          
+          xi = x*w;
+          yi = y*h;
+          xi = xi + 10;
+          yi = yi + 10;
+          //ellipse(x, y, w, h);
+          colorMode(HSB, 255);
+          fill( color((((255-100)/colors))*ncolor, 255, 170) );
+          ellipse(xi,yi,15,15);
+          point(xi, yi);
         }
         else if(mode == 'c'){ //Circle
           xi = x*w;
@@ -68,9 +83,10 @@ void draw() {
           
         }
         break;
-      case 'e':
+      case 'e': //Need to draw an edge 
+        stroke(255);
         if(mode == 'u'){ //Unit square
-          
+          line(xi, yi, (x*w)+10, (y*h)+10);
         }
         else if(mode == 'c'){ //Circle
           line(xi, yi, (x*w)/2+10, (y*h)/2+10);
