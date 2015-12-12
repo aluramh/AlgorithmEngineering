@@ -5,12 +5,20 @@
 #include <stdio.h>      /* printf, scanf, puts, NULL */
 #include <stdlib.h>     /* srand, rand */
 #include <time.h>  
+#include <vector>
 
-#define Q_NODES 50
+#define Q_NODES 1200
 #define M_PI 3.14159265358979323846  /* pi */
-#define Q_COLORS 200
+#define Q_COLORS 100
 
 using namespace std;
+
+struct Sensors {
+	int id;
+	double x;
+	double y;
+	double z;
+};
 
 //Array of edges in dynamic memory. 
 //e.g. edges[33] contains a list with all the edges of node with ID 33
@@ -22,12 +30,19 @@ unsigned int *degrees = new unsigned int[Q_NODES];
 unsigned int *originalDegrees = new unsigned int[Q_NODES];
 unsigned int *smallestLast = new unsigned int[Q_NODES];
 int *coloring = new int[Q_NODES];
+Sensors *nodeInfo = new Sensors[Q_NODES];
 
 //Declare list of nodes
 list<Node> myList;
 
+//List of terminal clique
+list<int> terminalClique;
+
 //Degree bucket
 list<unsigned int> *bucketDegrees;
+
+int colorsNeeded = 1;
+char type;
 
 double random() {
 	return (double)rand() / (double)RAND_MAX;
@@ -51,7 +66,7 @@ void showDegrees() {
 double averageDegree() {
 	double accum = 0;
 	for (int i = 0; i < Q_NODES; i++) {
-		accum += degrees[i];
+		accum += originalDegrees[i];
 	}
 	return accum / Q_NODES;
 }
@@ -74,16 +89,6 @@ void displayAdjacenecyList2() {
 	}
 }
 
-Node findInList(list<Node> myList, Node a) {
-	Node result = NULL;
-	for (list<Node>::iterator it = myList.begin(); it != myList.end(); it++) {
-		if ((*it).getInfo() == a.getInfo()) {
-			result = (*it);
-			break;
-		}
-	}
-	return result;
-}
 void connectNodes3D(double r) {
 	double rs = r*r;
 	int i = 0;
@@ -130,7 +135,14 @@ void displayNodes(list<Node> myList) {
 void createRGG() {
 	srand(time(NULL));
 	for (int i = 0; i < Q_NODES; i++) {
-		myList.push_back(Node(i, random(), random(), 0));
+		double x = random();
+		double y = random();
+		nodeInfo[i].id = i;
+		nodeInfo[i].x = x;
+		nodeInfo[i].y = y;
+		nodeInfo[i].z = 0;
+
+		myList.push_back(Node(i, x, y, 0));
 		index[i] = i;
 	}
 }
@@ -143,6 +155,10 @@ void createCircleRGG() {
 			i--;
 		}
 		else {
+			nodeInfo[i].id = i;
+			nodeInfo[i].x = x;
+			nodeInfo[i].y = y;
+			nodeInfo[i].z = 0;
 			myList.push_back(Node(i, x, y, 0));
 		}
 	}
@@ -182,8 +198,8 @@ void displayDegreeBucket(int buckets) {
 int maxDegree() {
 	int max = 0;
 	for (int i = 0; i < Q_NODES; i++) {
-		if (degrees[i] > max) {
-			max = degrees[i];
+		if (originalDegrees[i] > max) {
+			max = originalDegrees[i];
 		}
 	}
 	return max;
@@ -241,6 +257,17 @@ void smallestLastOrdering(int buckets) {
 			}
 		}
 	}
+
+	int prev = 0;
+
+	for (int i = 0; i < Q_NODES; i++) {
+		int n = smallestLast[i];
+		if (prev > degrees[n]) {
+			break;
+		}
+		terminalClique.push_front(n);
+		prev = degrees[n];
+	}
 }
 void showSmallestLast() {
 	cout << "Smallest last ordering: [Node ID, Act. Deg., Deg. when deleted]" << endl;
@@ -248,7 +275,6 @@ void showSmallestLast() {
 		int n = smallestLast[i];
 		cout << n << " " << originalDegrees[n] << " " << degrees[n] << endl;
 	}
-	cout << endl;
 }
 void coloringAlgorithm() {
 	for (int i = 0; i < Q_NODES; i++) {
@@ -292,7 +318,14 @@ int maxColors() {
 			max = coloring[i];
 		}
 	}
-	return max;
+	return max+1;
+}
+void showTerminalClique() {
+	cout << "Terminal clique: ";
+	for (std::list<int>::const_iterator iterator = terminalClique.begin(), end = terminalClique.end(); iterator != end; ++iterator) {
+		cout << *iterator << " ";
+	}
+	cout << endl;
 }
 void writeFile(char type) {
 	ofstream myfile;
@@ -300,6 +333,7 @@ void writeFile(char type) {
 	myfile << type << " 0 0 0 0" << endl;
 	myfile << "k " << maxColors() << " 0 0 0" << endl;
 	int i = 0;
+
 	for (list<Node>::iterator it = myList.begin(); it != myList.end(); it++) {
 		myfile << "n " << (*it).getX() << " " << (*it).getY() << " " << (*it).getZ() << " " << coloring[(int)(*it).getInfo()] << endl;
 		list<Node> edgeList = edges[i];
@@ -309,14 +343,195 @@ void writeFile(char type) {
 		}
 		i++;
 	}
+	i = 0;
+
+	while (!terminalClique.empty()) {
+		int node = terminalClique.front();
+		myfile << "l " << nodeInfo[node].x << " " << nodeInfo[node].y << " " << nodeInfo[node].z << " " << 0 << endl;
+		terminalClique.pop_front();
+	}
 	myfile.close();
 }
-int main(int argc, const char * argv[])
-{	
-	char type;
-	double radius = 0.2;
+void writeGraphData(double radius) {
+	ofstream myfile;
+	myfile.open("C:/Users/Alex/Desktop/graphData.txt");
+	myfile << "avgdeg " << averageDegree() << endl;
+	myfile << "maxdeg " << maxDegree() << endl;
+	myfile << "colors " << maxColors() << endl;
+	myfile << "radius " << radius << endl;
+	myfile.close();
+	
+}
+void createSphereRGG() {
+	srand(time(NULL));
+	for (int i = 0; i < Q_NODES; i++) {
+		double x = 2 * random() - 1;
+		double y = 2 * random() - 1;
+		double z = 2 * random() - 1;
+		double squares = x*x + y*y + z*z;
+		if ( squares > 1) {
+			i--;
+		}
+		else {
+			double reciprocal = sqrt(squares);
+			nodeInfo[i].id = i;
+			nodeInfo[i].x = x / reciprocal;
+			nodeInfo[i].y = y / reciprocal;
+			nodeInfo[i].z = z / reciprocal;
+			myList.push_back(Node(i, x/reciprocal, y/ reciprocal, z/ reciprocal));
+		}
+	}
+}
+void showNodeInfo() {
+	for (int i = 0; i < Q_NODES; i++) {
+		cout << nodeInfo[i].id << ": " << nodeInfo[i].x << " " << nodeInfo[i].y << " " << nodeInfo[i].z << endl;
+	}
+}
+int findMaxSet(vector<int> &colorEdges){
+	int max = 0;
+	int maxColor = 0;
+	for (int i = 0; i < colorsNeeded; i++) {
+		if (colorEdges[i] > max) {
+			max = colorEdges[i];
+			maxColor = i;
+		}
+	}
+	colorEdges[maxColor] = 0;
+	return maxColor;
+}
+int calculateConnectedness(int i, int j, vector<list<int>> &colorNodes, list<Node> *originalEdges){
+	int connectedness = 0;
+	list<int> colorSet1 = colorNodes[i];
+	list<int> colorSet2 = colorNodes[j];
+
+	for (list<int>::iterator it = colorSet1.begin(); it != colorSet1.end(); it++) {
+		for (list<Node>::iterator it2 = originalEdges[(*it)].begin(); it2 != originalEdges[(*it)].end(); it2++) {
+			for (list<int>::iterator it3 = colorSet2.begin(); it3 != colorSet2.end(); it3++) {
+				if ( (*it2).getInfo() == (*it3) ) {
+					connectedness++;
+					break;
+				}
+			}
+		}
+	}
+	return connectedness;
+}
+void writeBipartite(list<int> setA, list<int> setB, list<Node> *edgeList, string version) {
+	ofstream myfile;
+	myfile.open("C:/Users/Alex/Desktop/bipartite" + version + ".txt");
+
+	myfile << type << " 0 0 0 0" << endl;
+	myfile << "k " << colorsNeeded << " 0 0 0" << endl;
+	for (list<int>::iterator it = setA.begin(); it != setA.end(); it++) {
+		myfile << "n " << nodeInfo[(*it)].x << " " << nodeInfo[(*it)].y << " " << nodeInfo[(*it)].z << " " << coloring[nodeInfo[(*it)].id] << endl;
+		for (list<Node>::iterator it2 = originalEdges[(*it)].begin(); it2 != originalEdges[(*it)].end(); it2++) {
+			for (list<int>::iterator it3 = setB.begin(); it3 != setB.end(); it3++) {
+				if ((*it2).getInfo() == (*it3)) {
+					myfile << "e " << (*it2).getX() << " " << (*it2).getY() << " " << (*it2).getZ() << " 0" << endl;
+					break;
+				}
+			}
+		}
+	}
+	for (list<int>::iterator it = setB.begin(); it != setB.end(); it++) {
+		myfile << "n " << nodeInfo[(*it)].x << " " << nodeInfo[(*it)].y << " " << nodeInfo[(*it)].z << " " << coloring[nodeInfo[(*it)].id] << endl;
+	}
+	myfile.close();
+}
+void findBipartite(vector<list<int>> &colorNodes, vector<int> colorEdges, int &i1, int &j1, int &i2, int &j2) {
+	int setsQ = 4;
+	vector<int> largestColors(setsQ);
+	//Find sets with maximum edges
+	if (colorsNeeded >= 4) {
+		for (int i = 0; i < 4; i++) {
+			int color = findMaxSet(colorEdges);
+			cout << i << " is " << color << endl;
+			largestColors[i] = color;
+		}
+	}	
+	else {
+		setsQ = colorsNeeded;
+		for (int i = 0; i < colorsNeeded; i++) {
+			int color = findMaxSet(colorEdges);
+			cout << i << " is " << color << endl;
+			largestColors[i] = color;
+		}
+	}
+
+	//Check all combinations
+	int maxi = 0;
+	int maxj = 0;
+	int maxConnect = 0;
+
+	int maxi2 = 0;
+	int maxj2 = 0;
+	int maxConnect2 = 0;
+	for (int i = 0; i < setsQ; i++) {
+		for (int j = i; j < setsQ; j++) {
+			if (i != j) {
+				int quantity = calculateConnectedness(i, j, colorNodes, originalEdges);
+				if (quantity > maxConnect2) {
+					maxi2 = i;
+					maxj2 = j;
+					maxConnect2 = quantity;
+					if (quantity > maxConnect) {
+						maxi2 = maxi;
+						maxj2 = maxj;
+						maxConnect2 = maxConnect;
+						maxi = i;
+						maxj = j;
+						maxConnect = quantity;
+					}
+				}
+				cout << "Sets (" << i << ", " << j << ") have " << quantity << endl;
+			}
+		}
+	}
+
+	i1 = maxi;
+	j1 = maxj;
+	i2 = maxi2;
+	j2 = maxj2;
+}
+void calculateBiData(vector<int> &colorInfo, vector<list<int>> &colorSets, vector<int> &colorEdgeCount) {
+	//Initialize
+	for (int i = 0; i < colorsNeeded; i++) {
+		colorInfo[i] = 0;
+	}
+	//Count how many for each node
+	for (int i = 0; i < Q_NODES; i++){
+		colorInfo[coloring[i]]++;
+		colorSets[coloring[i]].push_back(i);
+		for (list<Node>::iterator it2 = originalEdges[i].begin(); it2 != originalEdges[i].end(); it2++) {
+			colorEdgeCount[coloring[i]]++;
+		}
+	}
+}
+void displayBiData(vector<int> &colorInfo, vector<list<int>> &colorSets, vector<int> &colorEdgeCount) {
+	for (int i = 0; i < colorsNeeded; i++) {
+		cout << "Color: " << i << " -> There are " << colorInfo[i] << endl;
+		cout << "# of edges = " << colorEdgeCount[i] << endl;
+		for (list<int>::iterator it2 = colorSets[i].begin(); it2 != colorSets[i].end(); it2++) {
+			cout << (*it2) << " ";
+		}
+		cout << endl << endl;
+	}
+}
+void writeSensorsUsed() {
+
+}
+int main(int argc, const char * argv[]){	
+	double radius = 0.6;
 	//cin >> type;
-	type = 'u';
+	type = 's';
+
+	//Degree approximation
+	/*
+	int degree = 30;
+	radius = sqrt(degree / (Q_NODES*M_PI));
+	*/
+	cout << "Radius: " << radius << endl;
+
 	switch (type) {
 		case 'u':
 			createRGG();
@@ -328,13 +543,17 @@ int main(int argc, const char * argv[])
 			break;
 		case 's':
 			//Sphere case
+			createSphereRGG();
+			connectNodes3D(radius);
 			break;
 		default:
 			break;
 	}
 	//displayNodes(myList);
+	
 	cout << endl;
 	//displayAdjacenecyList();
+	
 	cout << endl;
 	//showDegrees();
 	cout << endl;
@@ -347,20 +566,49 @@ int main(int argc, const char * argv[])
 	for (int i = 0; i < Q_NODES; i++) {
 		originalEdges[i] = edges[i];
 	}
+	cout << "\nDEGREE: "<< averageDegree() << endl;
 
 	//Perform smallest last ordering
 	smallestLastOrdering(buckets);
-	showSmallestLast();
+	//showSmallestLast();
 
 	//Coloring
 	coloringAlgorithm();
-	displayColoring();
-	displayAdjacenecyList2();
+	colorsNeeded = maxColors();
+	//displayColoring();
 
-	cout << "\nSuccess!\nAvg. deg.: " << averageDegree() << "\nMax deg.: " << maxDegree() << "\nColors needed: " << maxColors()<< endl;
+	//Find bipartite subgraph
+		//Find how many and which nodes, in each color
+	vector<int> colorInfo(colorsNeeded);
+	vector<list<int>> colorSets(colorsNeeded);
+	vector<int> colorEdgeCount(colorsNeeded);
+	calculateBiData(colorInfo, colorSets, colorEdgeCount);
+	//displayBiData(colorInfo, colorSets, colorEdgeCount);
+		//Find max independent set
+	int i1, j1, i2, j2;
+	findBipartite(colorSets, colorEdgeCount, i1, j1, i2, j2);
+
+	writeBipartite(colorSets[i1], colorSets[j1], originalEdges, "1");
+	writeBipartite(colorSets[i2], colorSets[j2], originalEdges, "2");
+	writeSensorsUsed();
+
+	cout << "List of nodes per color set:\n";
+	for (int i = 0; i < colorsNeeded; i++) {
+		cout << i << " has " << colorEdgeCount[i] << endl;
+	}
+
+	//displayColoring();
+	//displayAdjacenecyList2();
+
+	//Find terminal clique
+	//showTerminalClique();
+
+	cout << "\nSuccess!\nAvg. deg.: " << averageDegree() << "\nMax deg.: " << maxDegree() << "\nColors needed: " << colorsNeeded << endl;
 	
 	//Release memory
 	writeFile(type);
+	writeGraphData(radius);
+
 	delete[] edges;
 	delete[] degrees;
 	delete[] index;
@@ -369,6 +617,7 @@ int main(int argc, const char * argv[])
 	delete[] smallestLast;
 	delete[] coloring;
 	delete[] originalEdges;
+	delete[] nodeInfo;
 	cout << "END\n";
 	return 0;
 }
