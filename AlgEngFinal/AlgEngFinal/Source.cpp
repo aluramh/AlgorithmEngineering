@@ -6,31 +6,28 @@
 #include <stdlib.h>     /* srand, rand */
 #include <time.h>  
 #include <vector>
+#include <algorithm>
 
-#define Q_NODES 1200
+#define Q_NODES 30
 #define M_PI 3.14159265358979323846  /* pi */
 #define Q_COLORS 100
 
 using namespace std;
 
 struct Sensors {
-	int id;
-	double x;
-	double y;
-	double z;
+	unsigned int id;
+	double x, y, z;
 };
 
 //Array of edges in dynamic memory. 
 //e.g. edges[33] contains a list with all the edges of node with ID 33
-list<Node> *edges = new list<Node>[Q_NODES];
-list<Node> *originalEdges = new list<Node>[Q_NODES];
-
-unsigned int *index = new unsigned int[Q_NODES];
-unsigned int *degrees = new unsigned int[Q_NODES];
-unsigned int *originalDegrees = new unsigned int[Q_NODES];
-unsigned int *smallestLast = new unsigned int[Q_NODES];
+vector<list<Sensors>> edges(Q_NODES);
+vector<list<Sensors>> originalEdges;
+vector<unsigned int>degrees(Q_NODES);
+vector<unsigned int>originalDegrees(Q_NODES);
+unsigned int *smallestLast;
 int *coloring = new int[Q_NODES];
-Sensors *nodeInfo = new Sensors[Q_NODES];
+vector<Sensors> nodeInfo(Q_NODES);
 
 //Declare list of nodes
 list<Node> myList;
@@ -43,25 +40,57 @@ list<unsigned int> *bucketDegrees;
 
 int colorsNeeded = 1;
 char type;
+int maximumDegree = 0;
+int maximumDegreeWhenDeleted = 0;
+int minimumDegree = Q_NODES;
+int terminalCliqueSize = 0;
+int maxColorClassSize = 0;
+unsigned int edgesLargestBipartite = 0;
+unsigned int edgesLargestBipartite2 = 0;
+double backboneCoverage = 0.0;
+double backboneCoverage2 = 0.0;
+int maxDegreeNode = 0;
+int minDegreeNode = 0;
+double radius;
 
 double random() {
 	return (double)rand() / (double)RAND_MAX;
 }
+bool xcompare(Sensors lhs, Sensors rhs) {
+	return lhs.x < rhs.x;
+}
 double distanceBetweenNodes(Node &a, Node &b) {
 	return sqrt(pow((a.getX() - b.getX()), 2) + pow((a.getY() - b.getY()), 2) + pow((a.getZ() - b.getZ()), 2));
 }
-void addEdge(Node &a, Node &b) {
-	edges[(int)a.getInfo()].push_back(b);
+void addEdge(int a, int b) {
+	edges[a].push_front(nodeInfo[b]);
 }
-void displayList(list<Node> myList) {
-	for (list<Node>::iterator it = myList.begin(); it != myList.end(); it++) {
-		cout << (*it).getInfo() << ", ";
+void displayList(list<Sensors> myList) {
+	for (list<Sensors>::iterator it = myList.begin(); it != myList.end(); it++) {
+		cout << (*it).id << ", ";
 	}
 }
 void showDegrees() {
 	for (int i = 0; i < Q_NODES; i++) {
-		cout << index[i] << ": " << degrees[i] << endl;
+		cout << i << ": " << degrees[i] << " Original:" << originalDegrees[i] << endl;
 	}
+}
+void writeColorSetSize(vector<int> &colorInfo) {
+	ofstream myfile;
+	myfile.open("C:/Users/Alex/Desktop/colorsets.txt");
+	for (int i = 0; i < colorsNeeded; i++) {
+		myfile << i << " " << colorInfo[i] << endl;
+	}
+	myfile.close();
+}
+void writeDegrees() {
+	ofstream myfile;
+	myfile.open("C:/Users/Alex/Desktop/degrees.txt");
+	myfile << "id D origDeg\n";
+	for (int i = 0; i < Q_NODES; i++) {
+		myfile << i << " " << degrees[i] << " " << originalDegrees[i] << endl;
+	}
+	myfile.close();
 }
 double averageDegree() {
 	double accum = 0;
@@ -88,43 +117,78 @@ void displayAdjacenecyList2() {
 		cout << endl;
 	}
 }
+double calcDistance(Sensors e1, Sensors e2) {
+	double x = e2.x - e1.x;
+	double y = e2.y - e1.y;
+	double z = e2.z - e1.z;
+	return (x*x) + (y*y) + (z*z);
+}
+void connectNodes3D() {
+	//Create copy
+	vector<Sensors> sorted = nodeInfo;
+	//Sort copy by X coord
+	sort(sorted.begin(), sorted.end(), xcompare);
+	//Calculate R^2
+	double r2 = radius*radius;
+	for (int i = 0; i < Q_NODES; i++) {
+		for (int j = i + 1; j < Q_NODES; j++) {
+			if ((sorted[j].x - sorted[i].x) > radius) {
+				break;
+			}
+			else {
+				double euclideanDist = calcDistance(sorted[i], sorted[j]);
+				if (euclideanDist < r2) {
+					addEdge(sorted[i].id, sorted[j].id);
+					addEdge(sorted[j].id, sorted[i].id);
+					degrees[sorted[i].id]++;
+					degrees[sorted[j].id]++;
+				}
+			}
+		}
+	}
 
-void connectNodes3D(double r) {
-	double rs = r*r;
+	/*Obsolete
 	int i = 0;
 	//O(n^2)
-	for (list<Node>::iterator A = myList.begin(); A != myList.end(); A++) {
+	for (list<Sensors>::iterator A = myList.begin(); A != myList.end(); A++) {
 		degrees[i] = 0;
 		originalDegrees[i] = 0;
-		for (list<Node>::iterator B = myList.begin(); B != myList.end(); B++) {
+		for (list<Sensors>::iterator B = myList.begin(); B != myList.end(); B++) {
 			double distance = pow(((*A).getX() - (*B).getX()), 2) + pow(((*A).getY() - (*B).getY()), 2) + pow(((*A).getZ() - (*B).getZ()), 2);
 			if ((distance <= rs) && ((*A).getInfo() != (*B).getInfo())) {
 				addEdge(*A, *B);
 				degrees[i]++;
 				originalDegrees[i]++;
 			}
-			
 		}
 		i++;
 	}
+	*/
 }
 
 void connectNodes2D(double r) {
-	double rs = r*r;
-	int i = 0;
-	//O(n^2)
-	for (list<Node>::iterator A = myList.begin(); A != myList.end(); A++) {
-		degrees[i] = 0;
-		originalDegrees[i] = 0;
-		for (list<Node>::iterator B = myList.begin(); B != myList.end(); B++) {
-			double distance = pow(((*A).getX() - (*B).getX()), 2) + pow(((*A).getY() - (*B).getY()), 2);
-			if ((distance <= rs) && ((*A).getInfo() != (*B).getInfo())) {
-				addEdge(*A, *B);
-				degrees[i]++;
-				originalDegrees[i]++;
+	//Create copy of nodes
+	vector<Sensors> sorted = nodeInfo;
+	//Sort copy by X coordinates
+	sort(sorted.begin(), sorted.end(), xcompare);
+	//Calculate R^2
+	double r2 = radius*radius;
+
+	for (int i = 0; i < Q_NODES; i++) {
+		for (int j = i + 1; j < Q_NODES; j++) {
+			if ((sorted[j].x - sorted[i].x) > radius) {
+				break;
+			}
+			else {
+				double euclideanDist = calcDistance(sorted[i], sorted[j]);
+				if (euclideanDist < r2) {
+					addEdge(sorted[i].id, sorted[j].id);
+					addEdge(sorted[j].id, sorted[i].id);
+					degrees[sorted[i].id]++;
+					degrees[sorted[j].id]++;
+				}
 			}
 		}
-		i++;
 	}
 }
 void displayNodes(list<Node> myList) {
@@ -143,7 +207,6 @@ void createRGG() {
 		nodeInfo[i].z = 0;
 
 		myList.push_back(Node(i, x, y, 0));
-		index[i] = i;
 	}
 }
 void createCircleRGG() {
@@ -166,6 +229,7 @@ void createCircleRGG() {
 
 void createDegreeBucket(int buckets) {
 	//Initialize array of lists
+
 	bucketDegrees = new list<unsigned int>[buckets];
 
 	for (int i = 0; i < buckets; i++) {
@@ -175,16 +239,6 @@ void createDegreeBucket(int buckets) {
 			}
 		}
 	}
-
-	/*
-	int i = 0;
-	for (list<Node>::iterator it = bucketDegrees.begin(); it != bucketDegrees.end(); it++) {
-		cout << (*it).getInfo() << "-> ";
-		displayList(edges[i]);
-		i++;
-		cout << endl;
-	}
-	*/
 }
 void displayDegreeBucket(int buckets) {
 	for (int i = 0; i < buckets; i++) {
@@ -196,10 +250,16 @@ void displayDegreeBucket(int buckets) {
 	}
 }
 int maxDegree() {
+	//minimumDegree
 	int max = 0;
 	for (int i = 0; i < Q_NODES; i++) {
-		if (originalDegrees[i] > max) {
-			max = originalDegrees[i];
+		if (degrees[i] > max) {
+			max = degrees[i];
+			maxDegreeNode = i;
+		}
+		if (degrees[i] < minimumDegree) {
+			minimumDegree = degrees[i];
+			minDegreeNode = i;
 		}
 	}
 	return max;
@@ -215,15 +275,14 @@ int findNonEmptyBucket(int buckets) {
 	return -1;
 }
 void removeEdge(int adjacentNode, int smallestNode) {
-	for (list<Node>::iterator it = edges[adjacentNode].begin(); it != edges[adjacentNode].end();) {
-		if ((*it).getInfo() == smallestNode) {
+	for (list<Sensors>::iterator it = edges[adjacentNode].begin(); it != edges[adjacentNode].end();) {
+		if ((*it).id == smallestNode) {
 			it = edges[adjacentNode].erase(it);
 		}
 		else {
 			it++;
 		}
 	}
-
 	//edges[(int)a.getInfo()].push_back(b);
 	//edges[adjacentNode].remove(smallestNode);
 }
@@ -238,11 +297,15 @@ void smallestLastOrdering(int buckets) {
 			smallestLast[Q_NODES - it - 1] = smallestNode;
 			//Remove them from bucket
 			bucketDegrees[currentList].pop_front();
+			//Update max degree when deleted
+			if (degrees[smallestNode] > maximumDegreeWhenDeleted) {
+				maximumDegreeWhenDeleted = degrees[smallestNode];
+			}
 			
 			//Next: Traverse through adjacent nodes and update their degree and position in bucket sorter.
 			//Traverse through adjacent nodes
-			for (list<Node>::iterator it = edges[smallestNode].begin(); it != edges[smallestNode].end(); it++) {
-				int adjacentNode = (*it).getInfo();
+			for (list<Sensors>::iterator it = edges[smallestNode].begin(); it != edges[smallestNode].end(); it++) {
+				int adjacentNode = (*it).id;
 				int adjacentNodeDegree = degrees[adjacentNode];
 				//Update their bucket position
 					//Add them to a lower degree in the bucket
@@ -256,6 +319,7 @@ void smallestLastOrdering(int buckets) {
 				degrees[adjacentNode]--;
 			}
 		}
+		cout << it << " ";
 	}
 
 	int prev = 0;
@@ -266,6 +330,7 @@ void smallestLastOrdering(int buckets) {
 			break;
 		}
 		terminalClique.push_front(n);
+		terminalCliqueSize++;
 		prev = degrees[n];
 	}
 }
@@ -289,9 +354,9 @@ void coloringAlgorithm() {
 		//Possible color combinations. 1 indicates available
 		bool color[Q_COLORS + 1] = {0};
 		//Iterate through neighbors
-		for (list<Node>::iterator it = originalEdges[current].begin(); it != originalEdges[current].end(); it++) {
+		for (list<Sensors>::iterator it = originalEdges[current].begin(); it != originalEdges[current].end(); it++) {
 			//Get an adjacent node
-			int adjacentNode = (*it).getInfo();
+			int adjacentNode = (*it).id;
 			if (coloring[adjacentNode] > -1) {
 				//Mark color with 1 for not available
 				color[coloring[adjacentNode]] = 1;
@@ -331,15 +396,15 @@ void writeFile(char type) {
 	ofstream myfile;
 	myfile.open("C:/Users/Alex/Desktop/nodes.txt");
 	myfile << type << " 0 0 0 0" << endl;
-	myfile << "k " << maxColors() << " 0 0 0" << endl;
+	myfile << "k " << colorsNeeded << " 0 0 0" << endl;
 	int i = 0;
 
 	for (list<Node>::iterator it = myList.begin(); it != myList.end(); it++) {
 		myfile << "n " << (*it).getX() << " " << (*it).getY() << " " << (*it).getZ() << " " << coloring[(int)(*it).getInfo()] << endl;
-		list<Node> edgeList = edges[i];
+		list<Sensors> edgeList = edges[i];
 
-		for (list<Node>::iterator it2 = edgeList.begin(); it2 != edgeList.end(); it2++) {
-			myfile << "e " << (*it2).getX() << " " << (*it2).getY() << " " << (*it2).getZ() << " 0" << endl;
+		for (list<Sensors>::iterator it2 = edgeList.begin(); it2 != edgeList.end(); it2++) {
+			myfile << "e " << (*it2).x << " " << (*it2).y << " " << (*it2).z << " 0" << endl;
 		}
 		i++;
 	}
@@ -350,17 +415,25 @@ void writeFile(char type) {
 		myfile << "l " << nodeInfo[node].x << " " << nodeInfo[node].y << " " << nodeInfo[node].z << " " << 0 << endl;
 		terminalClique.pop_front();
 	}
+	myfile << "max " << nodeInfo[maxDegreeNode].x << " " << nodeInfo[maxDegreeNode].y << " " << nodeInfo[maxDegreeNode].z << " " << 0 << endl;
+	myfile << "min " << nodeInfo[minDegreeNode].x << " " << nodeInfo[minDegreeNode].y << " " << nodeInfo[minDegreeNode].z << " " << 0 << endl;
 	myfile.close();
 }
 void writeGraphData(double radius) {
 	ofstream myfile;
 	myfile.open("C:/Users/Alex/Desktop/graphData.txt");
 	myfile << "avgdeg " << averageDegree() << endl;
-	myfile << "maxdeg " << maxDegree() << endl;
-	myfile << "colors " << maxColors() << endl;
+	myfile << "maxdeg " << maximumDegree << endl;
+	myfile << "mindeg " << minimumDegree << endl;
+	myfile << "colors " << colorsNeeded << endl;
 	myfile << "radius " << radius << endl;
+	myfile << "vertices " << Q_NODES << endl;
+	myfile << "terminalCliqueSize " << terminalCliqueSize << endl;
+	myfile << "maxdegWD " << maximumDegreeWhenDeleted << endl;
+	myfile << "maxColorClassSize " << maxColorClassSize << endl;
+	myfile << "edgesBipartite " << edgesLargestBipartite << endl;
+	myfile << "edgesBipartite2 " << edgesLargestBipartite2 << endl;
 	myfile.close();
-	
 }
 void createSphereRGG() {
 	srand(time(NULL));
@@ -399,24 +472,25 @@ int findMaxSet(vector<int> &colorEdges){
 	colorEdges[maxColor] = 0;
 	return maxColor;
 }
-int calculateConnectedness(int i, int j, vector<list<int>> &colorNodes, list<Node> *originalEdges){
+int calculateConnectedness(int i, int j, vector<list<int>> &colorNodes, vector<list<Sensors>> originalEdges){
 	int connectedness = 0;
 	list<int> colorSet1 = colorNodes[i];
 	list<int> colorSet2 = colorNodes[j];
 
 	for (list<int>::iterator it = colorSet1.begin(); it != colorSet1.end(); it++) {
-		for (list<Node>::iterator it2 = originalEdges[(*it)].begin(); it2 != originalEdges[(*it)].end(); it2++) {
+		for (list<Sensors>::iterator it2 = originalEdges[(*it)].begin(); it2 != originalEdges[(*it)].end(); it2++) {
 			for (list<int>::iterator it3 = colorSet2.begin(); it3 != colorSet2.end(); it3++) {
-				if ( (*it2).getInfo() == (*it3) ) {
+				if ( (*it2).id == (*it3) ) {
 					connectedness++;
 					break;
 				}
 			}
 		}
+		cout << (*it) << " ";
 	}
 	return connectedness;
 }
-void writeBipartite(list<int> setA, list<int> setB, list<Node> *edgeList, string version) {
+void writeBipartite(list<int> setA, list<int> setB, vector<list<Sensors>> edgeList, string version) {
 	ofstream myfile;
 	myfile.open("C:/Users/Alex/Desktop/bipartite" + version + ".txt");
 
@@ -424,10 +498,10 @@ void writeBipartite(list<int> setA, list<int> setB, list<Node> *edgeList, string
 	myfile << "k " << colorsNeeded << " 0 0 0" << endl;
 	for (list<int>::iterator it = setA.begin(); it != setA.end(); it++) {
 		myfile << "n " << nodeInfo[(*it)].x << " " << nodeInfo[(*it)].y << " " << nodeInfo[(*it)].z << " " << coloring[nodeInfo[(*it)].id] << endl;
-		for (list<Node>::iterator it2 = originalEdges[(*it)].begin(); it2 != originalEdges[(*it)].end(); it2++) {
+		for (list<Sensors>::iterator it2 = edgeList[(*it)].begin(); it2 != edgeList[(*it)].end(); it2++) {
 			for (list<int>::iterator it3 = setB.begin(); it3 != setB.end(); it3++) {
-				if ((*it2).getInfo() == (*it3)) {
-					myfile << "e " << (*it2).getX() << " " << (*it2).getY() << " " << (*it2).getZ() << " 0" << endl;
+				if ((*it2).id == (*it3)) {
+					myfile << "e " << (*it2).x << " " << (*it2).y << " " << (*it2).z << " 0" << endl;
 					break;
 				}
 			}
@@ -487,7 +561,8 @@ void findBipartite(vector<list<int>> &colorNodes, vector<int> colorEdges, int &i
 			}
 		}
 	}
-
+	edgesLargestBipartite = maxConnect;
+	edgesLargestBipartite2 = maxConnect2;
 	i1 = maxi;
 	j1 = maxj;
 	i2 = maxi2;
@@ -502,8 +577,13 @@ void calculateBiData(vector<int> &colorInfo, vector<list<int>> &colorSets, vecto
 	for (int i = 0; i < Q_NODES; i++){
 		colorInfo[coloring[i]]++;
 		colorSets[coloring[i]].push_back(i);
-		for (list<Node>::iterator it2 = originalEdges[i].begin(); it2 != originalEdges[i].end(); it2++) {
+		for (list<Sensors>::iterator it2 = originalEdges[i].begin(); it2 != originalEdges[i].end(); it2++) {
 			colorEdgeCount[coloring[i]]++;
+		}
+	}
+	for (int i = 0; i < colorsNeeded; i++) {
+		if (colorInfo[i] > maxColorClassSize) {
+			maxColorClassSize = colorInfo[i];
 		}
 	}
 }
@@ -517,20 +597,85 @@ void displayBiData(vector<int> &colorInfo, vector<list<int>> &colorSets, vector<
 		cout << endl << endl;
 	}
 }
-void writeSensorsUsed() {
+void showBipartiteEdges(vector<int> &colorEdgeCount, int i, int j) {
+	cout << "Largest sets: " << i << ", " << j << " have #edges = " << edgesLargestBipartite << endl;
+	cout << "List of edges per color set:\n";
+	for (int i = 0; i < colorsNeeded; i++) {
+		cout << i << " has " << colorEdgeCount[i] << endl;
+	}
+}
+double calculateCoverage(list<int> setA, list<int> setB, vector<list<Sensors>> edgeList) {
+	//Create aux array. If node has been visisted, do not add again as another reached node.
+	bool *nodeAux = new bool[Q_NODES]();
+	unsigned int reachedNodes = 0;
 
+	//Iterate through 1st set of bipartite
+	for (list<int>::const_iterator it = setA.begin(), end = setA.end(); it != end; ++it) {
+		int currentNode = (*it);
+		if (nodeAux[currentNode] == 0) {
+			//Count bipartite nodes as reached
+			nodeAux[currentNode] = 1;
+			reachedNodes++;
+		}
+		//Iterate through neighbors of nodes
+		for (list<Sensors>::iterator it2 = edgeList[currentNode].begin(); it2 != edgeList[currentNode].end(); it2++) {
+			//Get an adjacent node
+			int adjacentNode = (*it2).id;
+			if (nodeAux[adjacentNode] == 0) {
+				//Count node as reached
+				nodeAux[adjacentNode] = 1;
+				reachedNodes++;
+			}
+		}
+	}
+	
+	//Iterate through 2nd set of bipartite
+	for (list<int>::const_iterator it = setB.begin(), end = setB.end(); it != end; ++it) {
+		int currentNode = (*it);
+		if (nodeAux[currentNode] == 0) {
+			//Count bipartite nodes as reached
+			nodeAux[currentNode] = 1;
+			reachedNodes++;
+		}
+		//Iterate through neighbors of nodes
+		for (list<Sensors>::iterator it2 = edgeList[currentNode].begin(); it2 != edgeList[currentNode].end(); it2++) {
+			//Get an adjacent node
+			int adjacentNode = (*it2).id;
+			if (nodeAux[adjacentNode] == 0) {
+				//Count node as reached
+				nodeAux[adjacentNode] = 1;
+				reachedNodes++;
+			}
+		}
+	}
+
+	//Delete memory and return node coverage
+	delete[] nodeAux;
+	return 1.0*reachedNodes/Q_NODES;
 }
 int main(int argc, const char * argv[]){	
-	double radius = 0.6;
-	//cin >> type;
-	type = 's';
+	radius = 0.9;
+	int degree = 120;
+	cout << "Enter graph type (u = Unit square, c = Unit disk, s = Unit sphere)" << endl;
+	cin >> type;
+	cout << "Enter wanted degree:" << endl;
+	cin >> degree;
 
 	//Degree approximation
-	/*
-	int degree = 30;
-	radius = sqrt(degree / (Q_NODES*M_PI));
-	*/
-	cout << "Radius: " << radius << endl;
+	double area;
+	switch (type) {
+	case 's': //Sphere area
+		area = 4 * M_PI;
+		break;
+	case 'c': //Unit circle area
+		area = M_PI;
+		break;
+	case 'u': //Unit square area
+		area = 1;
+		break;
+	}
+	
+	radius = sqrt( (degree*area) / (Q_NODES*M_PI) );
 
 	switch (type) {
 		case 'u':
@@ -544,38 +689,44 @@ int main(int argc, const char * argv[]){
 		case 's':
 			//Sphere case
 			createSphereRGG();
-			connectNodes3D(radius);
+			cout << "Nodes created." << endl;
+			connectNodes3D();
+			cout << "Edge list created." << endl;
 			break;
 		default:
 			break;
 	}
+	
+	maximumDegree = maxDegree();
 	//displayNodes(myList);
-	
 	cout << endl;
+	cout << "Adjacency list:" << endl;
 	//displayAdjacenecyList();
+	originalDegrees = degrees;
 	
-	cout << endl;
-	//showDegrees();
-	cout << endl;
-
 	//Perform bucket sort
-	int buckets = maxDegree()+1;
+	
+	int buckets = maximumDegree +1;
+	
 	createDegreeBucket(buckets);
 	//displayDegreeBucket(buckets);
 	
-	for (int i = 0; i < Q_NODES; i++) {
-		originalEdges[i] = edges[i];
-	}
-	cout << "\nDEGREE: "<< averageDegree() << endl;
-
+	originalEdges = edges;
+	smallestLast = new unsigned int[Q_NODES];
 	//Perform smallest last ordering
 	smallestLastOrdering(buckets);
+	cout << "Smallest last ordering executed successully." << endl;
+	delete[] bucketDegrees;
 	//showSmallestLast();
 
 	//Coloring
 	coloringAlgorithm();
 	colorsNeeded = maxColors();
+	cout << "Coloring algorithm executed successully." << endl;
 	//displayColoring();
+
+	writeDegrees();
+	
 
 	//Find bipartite subgraph
 		//Find how many and which nodes, in each color
@@ -583,19 +734,20 @@ int main(int argc, const char * argv[]){
 	vector<list<int>> colorSets(colorsNeeded);
 	vector<int> colorEdgeCount(colorsNeeded);
 	calculateBiData(colorInfo, colorSets, colorEdgeCount);
+	writeColorSetSize(colorInfo);
+
 	//displayBiData(colorInfo, colorSets, colorEdgeCount);
 		//Find max independent set
 	int i1, j1, i2, j2;
 	findBipartite(colorSets, colorEdgeCount, i1, j1, i2, j2);
+	cout << "Bipartite backbone selected successully." << endl;
+	backboneCoverage = calculateCoverage(colorSets[i1], colorSets[j1], originalEdges);
+	backboneCoverage2 = calculateCoverage(colorSets[i2], colorSets[j2], originalEdges);
+
+	//showBipartiteEdges(colorEdgeCount, i1, j1);
 
 	writeBipartite(colorSets[i1], colorSets[j1], originalEdges, "1");
 	writeBipartite(colorSets[i2], colorSets[j2], originalEdges, "2");
-	writeSensorsUsed();
-
-	cout << "List of nodes per color set:\n";
-	for (int i = 0; i < colorsNeeded; i++) {
-		cout << i << " has " << colorEdgeCount[i] << endl;
-	}
 
 	//displayColoring();
 	//displayAdjacenecyList2();
@@ -603,21 +755,15 @@ int main(int argc, const char * argv[]){
 	//Find terminal clique
 	//showTerminalClique();
 
-	cout << "\nSuccess!\nAvg. deg.: " << averageDegree() << "\nMax deg.: " << maxDegree() << "\nColors needed: " << colorsNeeded << endl;
+	cout << "\nSuccess!\nAvg. deg.: " << averageDegree() << "\nMax deg.: " << maximumDegree << "\nColors needed: " << colorsNeeded << endl;
+	cout << "Coverage bipartite 1: " << 1.0*backboneCoverage << endl;
+	cout << "Coverage bipartite 2: " << 1.0*backboneCoverage2 << endl;
 	
 	//Release memory
 	writeFile(type);
 	writeGraphData(radius);
-
-	delete[] edges;
-	delete[] degrees;
-	delete[] index;
-	delete[] bucketDegrees;
-	delete[] originalDegrees;
 	delete[] smallestLast;
 	delete[] coloring;
-	delete[] originalEdges;
-	delete[] nodeInfo;
 	cout << "END\n";
 	return 0;
 }

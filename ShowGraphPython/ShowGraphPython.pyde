@@ -1,6 +1,6 @@
 h = int(600/1)
 w = int(1200/1)
-padding = 60
+padding = 50
 axispad = 60
 xi = 0
 yi = 0
@@ -8,6 +8,8 @@ zi = 0
 mode = ''
 colors = 1
 colorNodes = []
+bipartite = False
+radius = 0.0
 s = "C:/Users/Alex/Desktop/nodes.txt"
 
 
@@ -17,10 +19,21 @@ def setup():
     graph(s)
 
 def createSquareGraph():
+    global radius
     frame.setTitle("Unit square RGG")
     fill(0)
     textAlign(CENTER, TOP)  # LEFT, RIGHT, CENTER
-
+    
+    #rect(x,y,width,height)
+    noStroke()
+    fill(255)
+    rect(0, 0, width, padding)
+    rect(0, 0, axispad, height)
+    rect(width-padding, 0, padding, height)
+    rect(0, height-axispad, width, axispad)
+    fill(0)
+    stroke(0)
+    
     # Left
     line(axispad, padding, axispad, h - axispad + padding)
     # Top
@@ -80,21 +93,33 @@ def createSquareGraph():
         elif data[0] == "colors":
             text("Colors = "+data[1], width/3*2, loc+20)
         elif data[0] == "radius":
-            text("R = "+data[1], width/3*1, loc)
+            radius = data[1]
+            text("R = "+radius, width/3*1, loc)
         
 
 def createCircleGraph():
+    global radius
     frame.setTitle("Unit circle")
-    fill(255)
+    stroke(0)
+    fill(255,0)
     textAlign(CENTER, TOP)  # LEFT, RIGHT, CENTER
+    
+    #ellipse(X, Y, width, height)
+    
+    eraseBorder = padding
+    strokeWeight(eraseBorder)
+    stroke(255)
+    ellipse(((w-axispad)/2)+axispad, ((h-axispad)/2)+padding, w-axispad+eraseBorder, h-axispad+eraseBorder)
+    strokeWeight(1)
+    stroke(0)
+    fill(255,0)
+    ellipse(((w-axispad)/2)+axispad, ((h-axispad)/2)+padding, w-axispad, h-axispad)
     
     # Left
     line(axispad, padding, axispad, h - axispad + padding)
     # Bottom
     line(axispad, h - axispad + padding, w, h - axispad + padding)
     
-    #ellipse(X, Y, width, height)
-    ellipse(((w-axispad)/2)+axispad, ((h-axispad)/2)+padding, w-axispad, h-axispad)
     
     # X-axis
     # Lineas en X van desde axispad (50) hasta W
@@ -145,29 +170,41 @@ def createCircleGraph():
         elif data[0] == "colors":
             text("Colors = "+data[1], width/3*2, loc+20)
         elif data[0] == "radius":
+            radius = data[1]
             text("R = "+data[1], width/3*1, loc)
     
 def createSphereGraph():
+    global radius
     frame.setTitle("Unit sphere")
-    fill(255)
     textAlign(CENTER, TOP)  # LEFT, RIGHT, CENTER
+    
+    #ellipse(X, Y, width, height)
+    stroke(0)
+    ellipseMode(CORNER)
+    fill(255,0)
+    
+    #Clean-up ellipses
+    eraseBorder = axispad
+    strokeWeight(eraseBorder)
+    stroke(255)
+    ellipse(axispad-eraseBorder/2, padding-eraseBorder/2, (w/2)-axispad+eraseBorder, h-axispad+eraseBorder)
+    ellipse(w/2 + axispad-eraseBorder/2, padding-eraseBorder/2, (w/2)-axispad+eraseBorder, h-axispad+eraseBorder)
+    strokeWeight(1)
+    stroke(0)
+
+    #Real elipses
+    ellipse(axispad, padding, (w/2)-axispad, h-axispad)
+    ellipse(w/2 + axispad, padding, (w/2)-axispad, h-axispad)
     
     # Left
     line(axispad, padding, axispad, h - axispad + padding)
     # Bottom
     line(axispad, h - axispad + padding, w/2, h - axispad + padding)
-    
     # Left
     line(w/2 + axispad, padding, w/2 + axispad, h - axispad + padding)
     # Bottom
     line(w/2 + axispad, h - axispad + padding, w, h - axispad + padding)
     
-    #ellipse(X, Y, width, height)
-    ellipseMode(CORNER)
-    fill(255)
-    
-    ellipse(axispad, padding, (w/2)-axispad, h-axispad)
-    ellipse(w/2 + axispad, padding, (w/2)-axispad, h-axispad)
     
     #For the first graph
     # X-axis
@@ -238,10 +275,11 @@ def createSphereGraph():
         elif data[0] == "colors":
             text("Colors = "+data[1], width/divs*(i+1), loc+20)
         elif data[0] == "radius":
+            radius = data[1]
             text("R = "+data[1], width/divs*i, loc)
     
 def graph(s):
-    global font, colorNodes
+    global font, colorNodes, bipartite, radius
     stroke(0)
     strokeWeight(1)
     # Font, 16 point, anti-aliasing
@@ -258,15 +296,15 @@ def graph(s):
         ncolor = int(data[4])
 
         if data[0] == 'c':  # Setup for circle mode
-            createCircleGraph()
+            #createCircleGraph()
             mode = 'c'
             
         elif data[0] == 'u':  # Setup for unit square mode
-            createSquareGraph()
+            #createSquareGraph()
             mode = 'u'
 
         elif data[0] == 's':  # Setup for sphere mode
-            createSphereGraph()
+            #createSphereGraph()
             wcanvas = (w/2)-axispad
             hcanvas = (height-axispad) - padding
             mode = 's';
@@ -281,12 +319,12 @@ def graph(s):
             if mode == 'u':  # Unit square
                 xi = x * (w - axispad) + axispad
                 yi = y * (h - axispad) + padding
-                colorNodes.append((xi, yi, ncolor, 0))
+                colorNodes.append((xi, yi, ncolor, 0, bipartite))
 
             elif mode == 'c':  # Circle
                 xi = (x/2 * (w - axispad) + axispad)
                 yi = (y/2 * (h - axispad) + padding)
-                colorNodes.append((xi, yi, ncolor, 0))
+                colorNodes.append((xi, yi, ncolor, 0, bipartite))
                 
             elif mode == 's':  # Sphere
                 xi = floor( ((x+1.0)/2.0) * (wcanvas) ) + axispad
@@ -294,9 +332,9 @@ def graph(s):
                 zi = z
                 
                 if zi >= 0:
-                    colorNodes.append((xi, yi, ncolor, 0))
+                    colorNodes.append((xi, yi, ncolor, 0, bipartite))
                 else:
-                    colorNodes.append((xi + w/2, yi, ncolor, 0))
+                    colorNodes.append((xi + w/2, yi, ncolor, 0, bipartite))
 
         # Have to draw an edge
         elif data[0] == 'e':  # Need to draw an edge 
@@ -331,51 +369,146 @@ def graph(s):
             if mode == 'u':  # Unit square
                 xi = x * (w - axispad) + axispad;
                 yi = y * (h - axispad) + padding;
-                colorNodes.append((xi, yi, 0, 1))
+                colorNodes.append((xi, yi, 0, 1, bipartite))
 
             elif mode == 'c':  # Unit square
                 xi = (x/2 * (w - axispad) + axispad)
                 yi = (y/2 * (h - axispad) + padding)
-                colorNodes.append((xi, yi, 0, 1))
+                colorNodes.append((xi, yi, 0, 1, bipartite))
 
             elif mode == 's':
                 xi = floor( ((x+1.0)/2.0) * (wcanvas) ) + axispad
                 yi = floor( ((y+1.0)/2.0) * (hcanvas) ) + padding
                 zi = z
                 if zi >= 0:
-                    colorNodes.append((xi, yi, ncolor, 1))
+                    colorNodes.append((xi, yi, ncolor, 1, bipartite))
                 else:
-                    colorNodes.append((xi + w/2, yi, ncolor, 1))
-
+                    colorNodes.append((xi + w/2, yi, ncolor, 1, bipartite))
+                    
+        elif data[0] == 'max':
+            if mode == 'u':  # Unit square
+                xi = x * (w - axispad) + axispad;
+                yi = y * (h - axispad) + padding;
+                colorNodes.append((xi, yi, 0, 0, True,'max'))
+                
+            elif mode == 'c':  # Unit circle
+                xi = (x/2 * (w - axispad) + axispad)
+                yi = (y/2 * (h - axispad) + padding)
+                colorNodes.append((xi, yi, 0, 0, True,'max'))
+                
+            elif mode == 's':
+                xi = floor( ((x+1.0)/2.0) * (wcanvas) ) + axispad
+                yi = floor( ((y+1.0)/2.0) * (hcanvas) ) + padding
+                zi = z
+                if zi >= 0:
+                    colorNodes.append((xi, yi, ncolor, 0, False,'max'))
+                else:
+                    colorNodes.append((xi + w/2, yi, ncolor, 0, False,'max'))
+                    
+        elif data[0] == 'min':
+            if mode == 'u':  # Unit square
+                xi = x * (w - axispad) + axispad;
+                yi = y * (h - axispad) + padding;
+                colorNodes.append((xi, yi, 0, 0, False,'min'))
+                
+            elif mode == 'c':  # Unit circle
+                xi = (x/2 * (w - axispad) + axispad)
+                yi = (y/2 * (h - axispad) + padding)
+                colorNodes.append((xi, yi, 0, 0, False,'min'))
+                
+            elif mode == 's':
+                xi = floor( ((x+1.0)/2.0) * (wcanvas) ) + axispad
+                yi = floor( ((y+1.0)/2.0) * (hcanvas) ) + padding
+                zi = z
+                if zi >= 0:
+                    colorNodes.append((xi, yi, ncolor, 0, False, 'min'))
+                else:
+                    colorNodes.append((xi + w/2, yi, ncolor, 0, False,'min'))
+                    
     for node in colorNodes:
-        ellipseMode(CENTER);
-        colorMode(HSB, 255);
-        fill(color(node[2]*(255/colors) % 255, 255, 255))
+        ellipseMode(CENTER)
+        colorMode(HSB, 255)
+        noStroke()
         if (node[3] == 1):
             stroke(123)
             fill(color(0, 0, 0))
-        ellipse(node[0], node[1], 10, 10)
+            ellipse(node[0], node[1], 10, 10)
+        else:
+            if (node[4] == True): #If Bipartite = true
+                colorMode(HSB, 255)
+                fill(200,255,200,20)
+                if mode == 's':
+                    print "RADIUS IS =",radius
+                    ellipse(node[0], node[1], float(radius)*(width/2-axispad-padding), float(radius)*(height-padding-axispad))
+                elif mode =='c':
+                    ellipse(node[0], node[1], float(radius)*(width-axispad-padding), float(radius)*(height-padding-axispad))
+                else:
+                    print "RADIUS IS =",radius
+                    ellipse(node[0], node[1], (2.0*float(radius))*(width-(axispad+padding)), (2.0*float(radius))*(height-padding-axispad))
+            noStroke()
+            if(len(node) > 5):
+                print "Dibuja Max/Min"
+                colorMode(HSB, 255)
+                colorMode(RGB)
+                #Color min-max respectively
+                if node[5] == 'max':
+                    stroke(255,0,0)
+                    fill(255,0,0,70)
+                else: #min
+                    stroke(0,0,255)
+                    fill(0,0,255,70)
+                    
+                if mode == 's':
+                    ellipse(node[0], node[1], float(radius)*(width/2-axispad-padding), float(radius)*(height-padding-axispad))
+                elif mode == 'c':
+                    ellipse(node[0], node[1], float(radius)*(width-axispad-padding), float(radius)*(height-padding-axispad))
+                else:
+                    ellipse(node[0], node[1], 2.0*float(radius)*(width-axispad-padding), 2.0*float(radius)*(height-padding-axispad))
+                colorMode(HSB, 255)
+            fill(color(node[2]*(255/colors) % 255, 255, 255))
+            ellipse(node[0], node[1], 10, 10)
+            noStroke()
+    if mode == 'c':  # Setup for circle mode
+        createCircleGraph()
+    elif mode == 'u':  # Setup for unit square mode
+        stroke(0)
+        createSquareGraph()
+    elif mode == 's':  # Setup for sphere mode
+        createSphereGraph()
     colorNodes = []
         
 def keyPressed():
+    global bipartite
     print "PASO POR AQUI"
     xi = 0
     yi = 0
     zi = 0
-    mode = ''
     colors = 1
     colorNodes = []
     if key == '1':
         background(255) 
         s = "C:/Users/Alex/Desktop/bipartite1.txt"
+        bipartite = True
         graph(s)
     if key == '2':
         background(255) 
+        s = "C:/Users/Alex/Desktop/bipartite1.txt"
+        bipartite = False
+        graph(s)
+    if key == '3':
+        background(255) 
         s = "C:/Users/Alex/Desktop/bipartite2.txt"
+        bipartite = True
+        graph(s)
+    if key == '4':
+        background(255) 
+        s = "C:/Users/Alex/Desktop/bipartite2.txt"
+        bipartite = False
         graph(s)
     elif key == 'g':
         background(255) 
         s = "C:/Users/Alex/Desktop/nodes.txt"
+        bipartite = False
         graph(s)
 
 def draw():
